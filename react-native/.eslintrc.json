@@ -11,7 +11,9 @@
   ],
   "rules": {
     "arrow-body-style": "off",
-    "react/jsx-filename-extension": [2, { "extensions": [".js", ".jsx"] }],
+    "react/jsx-filename-extension": [2, {
+      "extensions": [".js", ".jsx"]
+    }],
     "react/forbid-prop-types": [0],
     "react/require-default-props": [0],
     "arrow-parens": [0],
