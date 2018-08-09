@@ -1,73 +1,80 @@
-import Meteor from 'meteor/meteor';
-import { Locations } from './locations';
-import { ValidatedMethod } from 'meteor/mdg:validated-method';
-import { SimpleSchema } from 'meteor/aldeed:simple-schema';
+import Meteor from "meteor/meteor";
+import { Locations } from "./locations";
+import { Activity } from "../activity/activity";
+import { ValidatedMethod } from "meteor/mdg:validated-method";
+import { SimpleSchema } from "meteor/aldeed:simple-schema";
 
 export const getNearestLocations = new ValidatedMethod({
-  name: 'Locations.getNearestLocations',
+  name: "Locations.getNearestLocations",
   validate: new SimpleSchema({
     latitude: {
       type: Number,
-      decimal: true,
+      decimal: true
     },
     longitude: {
       type: Number,
-      decimal: true,
-    },
+      decimal: true
+    }
   }).validator(),
   run({ latitude, longitude }) {
-    console.log(latitude, longitude);
     const query = {
       location: {
         $near: {
           $geometry: {
-            type: 'Point',
-            coordinates: [longitude, latitude],
+            type: "Point",
+            coordinates: [longitude, latitude]
           },
-          $minDistance: 0,
-        },
-      },
+          $minDistance: 0
+        }
+      }
     };
     return Locations.find(query, {
-      limit: 10,
+      limit: 10
     }).fetch();
-  },
+  }
 });
 
 export const changeCheckinStatus = new ValidatedMethod({
-  name: 'Locations.changeCheckin',
+  name: "Locations.changeCheckin",
   validate: new SimpleSchema({
     locationId: { type: String },
-    status: { type: String, allowedValues: ['in', 'out'] },
+    status: { type: String, allowedValues: ["in", "out"] }
   }).validator(),
   run({ locationId, status }) {
+    Activity.insert({
+      createdAt: new Date(),
+      username: "demo",
+      userId: "demo",
+      type: status,
+      locationId
+    });
     const location = Locations.findOne({ _id: locationId });
 
     if (!location) {
       throw new Meteor.Error(
-        'Locations.changeCheckin.invalidLocationId',
-        'Must pass a valid location id to change checkin status.',
+        "Locations.changeCheckin.invalidLocationId",
+        "Must pass a valid location id to change checkin status."
       );
     }
 
-    if (status === 'in') {
+    if (status === "in") {
       Locations.update(
         { _id: locationId },
         {
           $set: {
-            checkedInUserId: 'demo', // TEMPORARY
-          },
-        },
+            checkedInUserId: "demo" // TEMPORARY
+          }
+        }
       );
     } else {
       Locations.update(
         { _id: locationId },
         {
           $set: {
-            checkedInUserId: null,
-          },
-        },
+            checkedInUserId: null
+          }
+        }
       );
     }
-  },
+  }
 });

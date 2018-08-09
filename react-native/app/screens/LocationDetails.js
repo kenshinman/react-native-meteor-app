@@ -2,10 +2,13 @@ import React, { Component } from "react";
 import Meteor, { withTracker } from "react-native-meteor";
 import { Text } from "react-native";
 import Container from "../components/Container";
+import moment from "moment";
 import { Header } from "../components/Text";
-import { Button, Card } from "react-native-elements";
+import { Button, Card, List, ListItem } from "react-native-elements";
 import colors from "../config/colors";
+import { connectAlert } from "../components/Alert";
 import _ from "lodash";
+import NotFound from "../components/NotFound";
 
 const CHECKED_IN = "in";
 const CHECKED_OUT = "out";
@@ -23,8 +26,38 @@ class LocationDetails extends Component {
     const { location } = this.props;
     let status = CHECKED_IN;
     if (location.checkedInUserId) {
+      //ie if it is not null or undefined or empty
       status = CHECKED_OUT;
     }
+
+    this.setState({ changingStatus: true });
+    Meteor.call(
+      "Locations.changeCheckin",
+      { locationId: location._id, status },
+      err => {
+        if (err) {
+          this.props.alertWithType("error", "Error", err.reason);
+        }
+        this.setState({ changingStatus: false });
+      }
+    );
+  };
+
+  renderItems = () => {
+    if (!this.props.activityReady) {
+      return <Header>Loading...</Header>;
+    } else if (this.props.activity.length === 0) {
+      return <NotFound text="No activity yet." small />;
+    }
+
+    return this.props.activity.map(a => (
+      <ListItem
+        key={a._id}
+        title={a.username}
+        subtitle={moment(a.createdAt).format("MMM Do @ h:mma")}
+        rightTitle={a.type === CHECKED_IN ? "Checked In" : "Checked Out"}
+      />
+    ));
   };
 
   render() {
@@ -54,10 +87,7 @@ class LocationDetails extends Component {
       <Container scroll>
         <Card title={location.station_name}>
           <Text>{location.street_address}</Text>
-          <Text>
-            {"\n"}
-            {location.access_days_time}
-          </Text>
+          <Text>{location.access_days_time}</Text>
         </Card>
         <Button
           raised
@@ -68,7 +98,20 @@ class LocationDetails extends Component {
           disabled={!available && !checkedIn}
           onPress={this.attemptCheckin}
           loading={this.state.changingStatus}
+          onPress={this.attemptCheckin} // Updated line
+          loading={this.state.changingStatus} // Updated line
         />
+
+        <Card title="Activity">
+          <List
+            containerStyle={{
+              borderTopWidth: 0,
+              borderBottomWidth: 0,
+              marginTop: 0
+            }}>
+            {this.renderItems()}
+          </List>
+        </Card>
       </Container>
     );
   }
@@ -78,11 +121,19 @@ const ConnectedLocationDetails = withTracker(params => {
   const location = _.get(params, "navigation.state.params.location", {});
 
   Meteor.subscribe("Locations.pub.details", { locationId: location._id });
+  const activityHandle = Meteor.subscribe("Activity.pub.list", {
+    locationId: location._id
+  });
 
   return {
     user: Meteor.user(),
-    location: Meteor.collection("locations").findOne({ _id: location._id })
+    location: Meteor.collection("locations").findOne({ _id: location._id }),
+    activityReady: activityHandle.ready(),
+    activity: Meteor.collection("activity").find(
+      { locationId: location._id },
+      { sort: { createdAt: -1 } }
+    )
   };
 })(LocationDetails);
 
-export default ConnectedLocationDetails;
+export default connectAlert(ConnectedLocationDetails);
